@@ -1,6 +1,6 @@
-# Project Title
+# IDS VCT Reporting
 
-One Paragraph of project description goes here
+A system to allow for the generation of VCT dashboards.
 
 ## Getting Started
 
@@ -58,9 +58,9 @@ Add additional notes about how to deploy this on a live system
 
 ## Built With
 
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+* [PowerBI](https://powerbi.microsoft.com/en-us/) - Visualisation tool
+* [Python](https://www.python.org) - Dependency Management
+* [Pandas](https://pandas.pydata.org) - Used to generate RSS Feeds
 
 ## Contributing
 
@@ -72,13 +72,13 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Authors
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
+* **Keith McClung** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
 
 See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is property of Schlumberger Oilfield
 
 ## Acknowledgments
 
