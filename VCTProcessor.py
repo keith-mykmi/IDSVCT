@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import pandas as pd
+from datetime import datetime
 
 """
 A processor using the Pandas framework to manipulate
@@ -8,11 +9,14 @@ Well processing information and allow it to be easily
 viewed in PowerBI
 
 """
+pd.options.mode.chained_assignment = None  # default='warn'
 
 #"dataset" would be the var used to store data in PBI
 #remove this line in production
 dataset = pd.read_csv('WTExport200000.csv')
 dataset['RigName'].fillna(value='none',inplace=True)
+#Drop rows with start, end, top or bottom as NULL or NAN
+dataset.dropna(subset = ['StartDate', 'EndDate','TopDepth','BottomDepth'], inplace=True, axis=0, how='any')
 
 
 def testDS():
@@ -25,7 +29,7 @@ def testDS():
 
     #Test load
     print(dataset.info())
-    print(dataset['ProjectName'].unique().tolist())
+    #print(dataset['ProjectName'].unique().tolist())
     #print(dataset['ProjectName'].value_counts())
     #print(dataset['Project_Guid'].value_counts())
     #activ = dataset['Activity'].value_counts()
@@ -46,21 +50,49 @@ def defineProjects():
     """
 
     IDS = dataset.drop_duplicates(subset = ['Welltrak_Project_Guid','WellName','RigName'], keep ='first', inplace = False)
-    print('IDS Project Record Generated: ',  IDS.info())
+
+    #Drop unused cols
+    IDS.drop(['JobName', 'FinalReportFlag','Borehole','Phase','StartDate','EndDate','Duration(Days)',
+    'Start_Day_Number','Activity','SubActivity','TopDepth','BottomDepth','TimeClassification','Planned_Flag'], axis=1,inplace=True)
+    IDS.drop(['NPTVendor', 'Global Name','NPTCategory','NPTSubCategory','Scope','Bit_Serial_Number','WE','WSS','AWSS','WSC','Skipped_Flag'], axis=1,inplace=True)
+
     IDS.sort_values(by=['ProjectName','RigName','WellName'],inplace=True)
-    #wellValues = IDS[['ProjectName','RigName','WellName']].values
 
     #Calcuate the initial well stats
     for index, row in IDS.iterrows():
-        print('Getting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
+        #print('Getting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
+
+        nptDays = calculateNPTStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
 
         stat = calculateWellStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
 
         print('Setting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
-        
-        for key, val in stat.items():
-            row[key] = stat[key]
-        
+
+        if stat is None:
+            print('***NULL ROW***')
+            IDS = IDS.drop(index, axis=0)
+        else:
+            IDS.at[index,'PYmaxEndDT'] = stat['maxEndDT']
+            IDS.at[index,'PYminStartDT'] = stat['minStartDT']
+            IDS.at[index,'PYminTopDepthFT'] = stat['minTopDepth']*3.28084
+            IDS.at[index,'PYmaxBottomDepthFT'] = stat['maxBottomDepth']*3.28084
+            IDS.at[index,'PYTDorCDreachedDT'] = stat['TDorCDreachedDT']
+            IDS.at[index,'PYNPTDays'] = nptDays
+
+            #Days to Target Depth or Current Depth
+            drillDays = pd.Timedelta(pd.to_datetime(stat['TDorCDreachedDT']) - pd.to_datetime(row['SpudDate'])).total_seconds() / 86400.0
+            IDS.at[index,'PYdaysToTDorCD'] = drillDays
+
+            #Days from SPUD to RR
+            opsDays = pd.Timedelta(pd.to_datetime(stat['maxEndDT']) - pd.to_datetime(row['SpudDate'])).total_seconds() / 86400.0
+            IDS.at[index,'PYOpsDays'] = opsDays
+            IDS.at[index,'PYNPTPercent'] = (nptDays / opsDays) * 100
+
+            #Feet Per day
+            IDS.at[index,'PYFeetPerDay'] = (stat['maxBottomDepth']*3.28084) / drillDays
+               
+    return IDS
+
 def calculateWellStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
 
     """
@@ -70,31 +102,47 @@ def calculateWellStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
     """
 
     well = dataset.query('ProjectName=="'+project+'" & WellName=="'+well+'" & RigName=="'+rig+'" ')
-    std = well['StartDate'].dropna()
-    endd = well['EndDate'].dropna()
-    td = well['TopDepth'].dropna()
-    bd = well['BottomDepth'].dropna()
+
+    std = well['StartDate'].dropna(axis=0,how='any')
+    endd = well['EndDate'].dropna(axis=0,how='any')
+    td = well['TopDepth'].dropna(axis=0,how='any')
+    bd = well['BottomDepth'].dropna(axis=0,how='any')
+
+    #if any entries come back NAN throw it in the f**king bin - we cannot calcualte on them anyway
+    if std.count() == 0 or endd.count() == 0 or td.count() == 0 or bd.count() == 0 :
+        return None
 
     wellStat = {
-        'maxEndDT': endd.max(),
+        'maxEndDT':endd.max(),
         'minStartDT':std.min(),
         'minTopDepth':td.min(),
         'maxBottomDepth':bd.max()
     }
+    
 
     TDRecords = well.query('BottomDepth == '+str(wellStat['maxBottomDepth']))
-
+    TDRecords['EndDate'].dropna(axis=0,how='any',inplace=True)
     wellStat['TDorCDreachedDT'] = TDRecords['EndDate'].min()
-
+  
     print(wellStat)
-
     return(wellStat)
+
+def calculateNPTStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
+    """
+        Return the sum of Non productive time days
+
+    """
+
+    #Get NPT rows
+    npt = dataset.query('ProjectName=="'+project+'" & WellName=="'+well+'" & RigName=="'+rig+'" & TimeClassification=="Non Productive" ')
+    nptDays = npt['Duration(Days)'].sum(skipna = True)
+    return nptDays 
 
 
 testDS()
+
 IDS = defineProjects()
-
-
+IDS.to_csv (r'C:\Users\Keith\OneDrive\Documents\Code\VCT\export_IDS.csv', index = None, header=True)
 
 
 
