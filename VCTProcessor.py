@@ -15,7 +15,7 @@ dropNoRig = True
 
 #"dataset" would be the var used to store data in PBI
 #remove this line in production
-dataset = pd.read_csv('WTExport200000.csv')
+dataset = pd.read_csv('WTExport20182019.csv')
 
 if dropNoRig:
     dataset.dropna(subset = ['RigName'], inplace=True, axis=0, how='any')
@@ -166,7 +166,8 @@ def calculateFlatTime(project='ADMA SARB Island UAE',rig='ND-78',well='SR54',tdd
 testDS()
 
 IDS = defineProjects()
-IDS.to_csv (r'export_IDS.csv', index = None, header=True)
+#IDS.to_csv (r'IDS.csv', index = None, header=True)
+IDS.to_excel(r'IDS.xlsx', index = None, header=True)
 
 
 
