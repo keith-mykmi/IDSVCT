@@ -67,10 +67,8 @@ def defineProjects():
 
     #Calcuate the initial well stats
     for index, row in IDS.iterrows():
-        #print('Getting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
 
         nptDays = calculateNPTStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
-
         stat = calculateWellStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
 
         print('Setting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
@@ -166,7 +164,6 @@ def calculateFlatTime(project='ADMA SARB Island UAE',rig='ND-78',well='SR54',tdd
 testDS()
 
 IDS = defineProjects()
-#IDS.to_csv (r'IDS.csv', index = None, header=True)
 IDS.to_excel(r'IDS.xlsx', index = None, header=True)
 
 
