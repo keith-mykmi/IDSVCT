@@ -11,10 +11,17 @@ viewed in PowerBI
 """
 pd.options.mode.chained_assignment = None  # default='warn'
 
+dropNoRig = True
+
 #"dataset" would be the var used to store data in PBI
 #remove this line in production
 dataset = pd.read_csv('WTExport200000.csv')
-dataset['RigName'].fillna(value='none',inplace=True)
+
+if dropNoRig:
+    dataset.dropna(subset = ['RigName'], inplace=True, axis=0, how='any')
+else:
+    dataset['RigName'].fillna(value='none',inplace=True)
+
 #Drop rows with start, end, top or bottom as NULL or NAN
 dataset.dropna(subset = ['StartDate', 'EndDate','TopDepth','BottomDepth'], inplace=True, axis=0, how='any')
 
@@ -79,6 +86,10 @@ def defineProjects():
             IDS.at[index,'PYTDorCDreachedDT'] = stat['TDorCDreachedDT']
             IDS.at[index,'PYNPTDays'] = nptDays
 
+            #Calculate flatTime
+            flatTimeDays = calculateFlatTime(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'],tddate=stat['TDorCDreachedDT'])
+            IDS.at[index,'PYFlatDays'] = flatTimeDays
+
             #Days to Target Depth or Current Depth
             drillDays = pd.Timedelta(pd.to_datetime(stat['TDorCDreachedDT']) - pd.to_datetime(row['SpudDate'])).total_seconds() / 86400.0
             IDS.at[index,'PYdaysToTDorCD'] = drillDays
@@ -138,11 +149,24 @@ def calculateNPTStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
     nptDays = npt['Duration(Days)'].sum(skipna = True)
     return nptDays 
 
+def calculateFlatTime(project='ADMA SARB Island UAE',rig='ND-78',well='SR54',tddate=pd.Timestamp('2018-12-17 17:30:00.000')):
+    """
+        Sum the time for each entry where there has not been a change in
+        bottomdepth
+
+        && PowerBI_wdm_Operational_TimeBreakdown[EndDate]<=PowerBI_wdm_Operational_TimeBreakdown[15 WelTD or ft/day Day TBD])
+
+    """
+
+    flatTimeEntries = dataset.query('ProjectName=="'+project+'" & WellName=="'+well+'" & RigName=="'+rig+'" & TopDepth==BottomDepth & EndDate < "'+tddate+'" ')
+    flatTimeDays = flatTimeEntries['Duration(Days)'].sum(skipna = True)
+    return flatTimeDays
+
 
 testDS()
 
 IDS = defineProjects()
-IDS.to_csv (r'C:\Users\Keith\OneDrive\Documents\Code\VCT\export_IDS.csv', index = None, header=True)
+IDS.to_csv (r'export_IDS.csv', index = None, header=True)
 
 
 
