@@ -23,6 +23,9 @@ dataset.dropna(subset = ['RigName'], inplace=True, axis=0, how='any')
 #Drop rows with start, end, top or bottom as NULL or NAN
 dataset.dropna(subset = ['StartDate', 'EndDate','TopDepth','BottomDepth'], inplace=True, axis=0, how='any')
 
+#Remove any rows with whitespace that is causing issues
+dataset=dataset.rename(columns={"Global Name":"GlobalName"},errors="raise")
+
 
 def testDS():
 
@@ -59,19 +62,20 @@ def defineProjects():
     #Drop unused cols
     IDS.drop(['JobName', 'FinalReportFlag','Borehole','Phase','StartDate','EndDate','Duration(Days)',
     'Start_Day_Number','Activity','SubActivity','TopDepth','BottomDepth','TimeClassification','Planned_Flag'], axis=1,inplace=True)
-    IDS.drop(['NPTVendor', 'Global Name','NPTCategory','NPTSubCategory','Scope','Bit_Serial_Number','WE','WSS','AWSS','WSC','Skipped_Flag'], axis=1,inplace=True)
+    IDS.drop(['NPTVendor', 'GlobalName','NPTCategory','NPTSubCategory','Scope','Bit_Serial_Number','WE','WSS','AWSS','WSC','Skipped_Flag'], axis=1,inplace=True)
 
     IDS.sort_values(by=['ProjectName','RigName','WellName'],inplace=True)
 
     #Calcuate the initial well stats
     for index, row in IDS.iterrows():
 
+        print('Setting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
+
         nptDays = calculateNPTStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         stat = calculateWellStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         mobilisationDays = calculateMobilisation(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
-
-        print('Setting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
-
+        completionDays = calculateCompletions(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
+        
         if stat is None:
             print('***NULL ROW***')
             IDS = IDS.drop(index, axis=0)
@@ -102,12 +106,16 @@ def defineProjects():
             #NPT
             IDS.at[index,'PYNPTPercent'] = (nptDays / OPT) * 100
 
+          
             #Feet Per day 
             IDS.at[index,'PYFeetPerDayToTD'] = (stat['maxBottomDepth']*3.28084) / drillDays
             IDS.at[index,'PYFeetPerDayToRR'] = (stat['maxBottomDepth']*3.28084) / OPT
 
             #Mobilisation time
             IDS.at[index,'PYMoblisationDays'] = mobilisationDays
+
+            #Completions time
+            IDS.at[index,'PYCompletionDays'] = completionDays
                
     return IDS
 
@@ -170,14 +178,44 @@ def calculateFlatTime(project='ADMA SARB Island UAE',rig='ND-78',well='SR54',tdd
     flatTimeDays = flatTimeEntries['Duration(Days)'].sum(skipna = True)
     return flatTimeDays
 
+def calculateCompletions(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
+    """
+        Sum the time for each entry in completions phase
+
+    """
+    completionTimeEntries = dataset.query('ProjectName=="'+project+'" & WellName=="'+well+'" & RigName=="'+rig+'" & Activity=="Completion" ')
+    completionTimeEntriesDays = completionTimeEntries['Duration(Days)'].sum(skipna = True)
+    return completionTimeEntriesDays
+
 def calculateMobilisation(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
 
    mobSingleWell = mob.query('Project_Name=="'+project+'" & Well=="'+well+'" & Rig=="'+rig+'" ')
    mobDays = mobSingleWell['Duration(Days)'].sum(skipna = True)
    return mobDays
 
+def NPTBreakDown():
+
+    #Generate a list of NPT categories, and drop_duplicated to create a header..
+    NPTCats = dataset[['Welltrak_Project_Guid','ProjectName','WellName','RigName','GlobalName','Duration(Days)','Rig_Release']]
+    NPTCats.dropna(subset = ['GlobalName'], inplace=True, axis=0, how='any')
+    NPTCatsHeader = NPTCats.drop_duplicates(subset = ['Welltrak_Project_Guid','WellName','RigName','GlobalName'], keep ='first', inplace = False)
+
+    print('Processing NPT for: ',NPTCatsHeader)
+
+    for index, row in NPTCatsHeader.iterrows():
+        print('Processing NPT for: ',row.tolist())
+
+        singleNPTEnt = NPTCats.query('ProjectName=="'+row['ProjectName']+'" & WellName=="'+row['WellName']+'" & RigName=="'+row['RigName']+'" & GlobalName=="'+row['GlobalName']+'"  ')
+        currentNPTDys = singleNPTEnt['Duration(Days)'].sum()
+        NPTCatsHeader.at[index,'PYDurationDays'] = currentNPTDys
+
+    return NPTCatsHeader
 
 testDS()
 
 IDS = defineProjects()
-IDS.to_excel(r'IDS.xlsx', index = None, header=True)
+IDSNPT = NPTBreakDown()
+
+with pd.ExcelWriter('IDS.xlsx') as writer:  # doctest: +SKIP
+    IDS.to_excel(writer, sheet_name='WellPerformance')
+    IDSNPT.to_excel(writer, sheet_name='NPTBreakdown')
