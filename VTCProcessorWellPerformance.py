@@ -11,6 +11,11 @@ viewed in PowerBI
 """
 pd.options.mode.chained_assignment = None  # default='warn'
 
+#Create a new Dataframe with session data
+dtn = datetime.utcnow()
+sessionDetails = {'Category': ['Session_Date_Time','Session_TimeZone'], 'DateTime': [dtn.strftime("%d %B %Y %H:%M:%S"),'UTC']}
+df = pd.DataFrame(data=sessionDetails)
+
 #"dataset" would be the var used to store data in PBI
 #remove this line in production
 dataset = pd.read_csv('WTExport20182019.csv')
@@ -209,7 +214,8 @@ def NPTBreakDown():
         currentNPTDys = singleNPTEnt['Duration(Days)'].sum()
         NPTCatsHeader.at[index,'PYDurationDays'] = currentNPTDys
 
-    return NPTCatsHeader
+    #Remove the Duration field as it will cause confusion and return
+    return NPTCatsHeader.drop(['Duration(Days)'], axis=1)
 
 testDS()
 
@@ -219,3 +225,4 @@ IDSNPT = NPTBreakDown()
 with pd.ExcelWriter('IDS.xlsx') as writer:  # doctest: +SKIP
     IDS.to_excel(writer, sheet_name='WellPerformance')
     IDSNPT.to_excel(writer, sheet_name='NPTBreakdown')
+    df.to_excel(writer, sheet_name='SessionNotes')
