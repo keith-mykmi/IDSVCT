@@ -18,10 +18,10 @@ df = pd.DataFrame(data=sessionDetails)
 
 #"dataset" would be the var used to store data in PBI
 #remove this line in production
-dataset = pd.read_csv('WTExport20182019.csv')
+dataset = pd.read_csv(r'Input\WTExport20182019.csv')
 
 #Load the mobilisation spreadsheet
-mob = pd.read_csv('WTMobilisation20182019.csv')
+mob = pd.read_csv(r'Input\WTMobilisation20182019.csv')
 
 #Drop Entries with no RigName
 dataset.dropna(subset = ['RigName'], inplace=True, axis=0, how='any')
@@ -31,23 +31,6 @@ dataset.dropna(subset = ['StartDate', 'EndDate','TopDepth','BottomDepth'], inpla
 #Remove any rows with whitespace that is causing issues
 dataset=dataset.rename(columns={"Global Name":"GlobalName"},errors="raise")
 
-
-def testDS():
-
-    """
-      Several functions to test the successful loading of the sample 
-      data - can de disgarded on production deployement.
-
-    """
-
-    #Test load
-    print(dataset.info())
-    #print(dataset['ProjectName'].unique().tolist())
-    #print(dataset['ProjectName'].value_counts())
-    #print(dataset['Project_Guid'].value_counts())
-    #activ = dataset['Activity'].value_counts()
-    #for a,b in activ.iteritems():
-    #    print(a,b)
 
 def defineProjects():
 
@@ -216,8 +199,6 @@ def NPTBreakDown():
 
     #Remove the Duration field as it will cause confusion and return
     return NPTCatsHeader.drop(['Duration(Days)'], axis=1)
-
-testDS()
 
 IDS = defineProjects()
 IDSNPT = NPTBreakDown()
