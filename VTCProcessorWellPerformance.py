@@ -29,8 +29,6 @@ dataset.dropna(subset = ['RigName'], inplace=True, axis=0, how='any')
 #Drop rows with start, end, top or bottom as NULL or NAN
 dataset.dropna(subset = ['StartDate', 'EndDate','TopDepth','BottomDepth'], inplace=True, axis=0, how='any')
 
-dataset = dataset.sort_values(by='StartDate', ascending=False)
-
 #Remove any rows with whitespace that is causing issues
 dataset = dataset.rename(columns={"Global Name":"GlobalName"},errors="raise")
 
@@ -71,15 +69,17 @@ def defineProjects():
         completionDays = calculateCompletions(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         drillingTime = calculateDrillingTime(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         InScopeAndProductiveFootage = calculateInScopeProductiveFootage(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
-        
+
+
         if stat is None:
             print('***NULL ROW***')
             IDS = IDS.drop(index, axis=0)
         else:
+
             IDS.at[index,'PYdrillingTime'] = drillingTime
             IDS.at[index,'PYInScopeProductiveFootage'] = InScopeAndProductiveFootage
 
-            #FPDDrilling = PYInScopeProductiveFootage + PYminTopDepthFt / PYDrillingTime
+            #Calculate FPDDrilling measure
             if stat['minTopDepth'] < 150 :
                 IDS.at[index,'PYFPDDrilling'] = ((InScopeAndProductiveFootage*3.2808) + stat['minTopDepth']*3.28084) / drillingTime
             else:
@@ -91,6 +91,8 @@ def defineProjects():
             IDS.at[index,'PYminTopDepthFT'] = stat['minTopDepth']*3.28084
             IDS.at[index,'PYmaxBottomDepthFT'] = stat['maxBottomDepth']*3.28084
             IDS.at[index,'PYTDorCDreachedDT'] = stat['TDorCDreachedDT']
+            IDS.at[index,'PYMaxStartNumber'] = stat['maxStartDayNumber']
+
             IDS.at[index,'PYNPTDays'] = nptDays
 
             #Calculate flatTime
@@ -139,8 +141,10 @@ def calculateWellStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
     endd = well['EndDate'].dropna(axis=0,how='any')
     td = well['TopDepth'].dropna(axis=0,how='any')
     bd = well['BottomDepth'].dropna(axis=0,how='any')
+    sdn = well['Start_Day_Number'].dropna(axis=0,how='any')
 
-    #if any entries come back NAN throw it in the f**king bin - we cannot calcualte on them anyway
+
+    #if any entries come back NAN throw it in the f**king bin - we cannot calculate on them anyway
     if std.count() == 0 or endd.count() == 0 or td.count() == 0 or bd.count() == 0 :
         return None
 
@@ -149,7 +153,8 @@ def calculateWellStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
         'maxEndDT':endd.max(),
         'minStartDT':std.min(),
         'minTopDepth':td.min(),
-        'maxBottomDepth':bd.max()
+        'maxBottomDepth':bd.max(),
+        'maxStartDayNumber':sdn.max()
     }
     
 
