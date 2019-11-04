@@ -25,11 +25,14 @@ mob = pd.read_csv(r'Input\WTMobilisation20182019.csv')
 
 #Drop Entries with no RigName
 dataset.dropna(subset = ['RigName'], inplace=True, axis=0, how='any')
+
 #Drop rows with start, end, top or bottom as NULL or NAN
 dataset.dropna(subset = ['StartDate', 'EndDate','TopDepth','BottomDepth'], inplace=True, axis=0, how='any')
 
+dataset = dataset.sort_values(by='StartDate', ascending=False)
+
 #Remove any rows with whitespace that is causing issues
-dataset=dataset.rename(columns={"Global Name":"GlobalName"},errors="raise")
+dataset = dataset.rename(columns={"Global Name":"GlobalName"},errors="raise")
 
 
 def defineProjects():
@@ -45,16 +48,19 @@ def defineProjects():
 
     """
 
+    #Drop the duplicate rows for each well, leaving a one line entry for each.
     IDS = dataset.drop_duplicates(subset = ['Welltrak_Project_Guid','WellName','RigName'], keep ='first', inplace = False)
 
     #Drop unused cols
-    IDS.drop(['JobName', 'FinalReportFlag','Borehole','Phase','StartDate','EndDate','Duration(Days)',
-    'Start_Day_Number','Activity','SubActivity','TopDepth','BottomDepth','TimeClassification','Planned_Flag'], axis=1,inplace=True)
-    IDS.drop(['NPTVendor', 'GlobalName','NPTCategory','NPTSubCategory','Scope','Bit_Serial_Number','WE','WSS','AWSS','WSC','Skipped_Flag'], axis=1,inplace=True)
+    IDS.drop(['JobName', 'FinalReportFlag','Borehole','Phase','StartDate',
+    'Start_Day_Number','Activity','SubActivity','TopDepth','BottomDepth','TimeClassification',
+    'Planned_Flag','NPTVendor', 'GlobalName','NPTCategory','NPTSubCategory','Scope','Bit_Serial_Number',
+    'WE','WSS','AWSS','WSC','Skipped_Flag'], axis=1,inplace=True)
 
-    IDS.sort_values(by=['ProjectName','RigName','WellName'],inplace=True)
+    #Sort by project name
+    IDS = IDS.sort_values(by=['ProjectName','RigName','WellName'])
 
-    #Calcuate the initial well stats
+    #For each single well row, calcuate the initial well stats
     for index, row in IDS.iterrows():
 
         print('Setting Stats for: ',row['ProjectName'],' | ',row['RigName'],' | ',row['WellName'])
@@ -63,11 +69,23 @@ def defineProjects():
         stat = calculateWellStats(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         mobilisationDays = calculateMobilisation(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         completionDays = calculateCompletions(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
+        drillingTime = calculateDrillingTime(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
+        InScopeAndProductiveFootage = calculateInScopeProductiveFootage(project=row['ProjectName'],rig=row['RigName'],well=row['WellName'])
         
         if stat is None:
             print('***NULL ROW***')
             IDS = IDS.drop(index, axis=0)
         else:
+            IDS.at[index,'PYdrillingTime'] = drillingTime
+            IDS.at[index,'PYInScopeProductiveFootage'] = InScopeAndProductiveFootage
+
+            #FPDDrilling = PYInScopeProductiveFootage + PYminTopDepthFt / PYDrillingTime
+            if stat['minTopDepth'] < 150 :
+                IDS.at[index,'PYFPDDrilling'] = ((InScopeAndProductiveFootage*3.2808) + stat['minTopDepth']*3.28084) / drillingTime
+            else:
+                IDS.at[index,'PYFPDDrilling'] = (InScopeAndProductiveFootage*3.2808) / drillingTime
+
+
             IDS.at[index,'PYmaxEndDT'] = stat['maxEndDT']
             IDS.at[index,'PYminStartDT'] = stat['minStartDT']
             IDS.at[index,'PYminTopDepthFT'] = stat['minTopDepth']*3.28084
@@ -200,6 +218,17 @@ def NPTBreakDown():
     #Remove the Duration field as it will cause confusion and return
     return NPTCatsHeader.drop(['Duration(Days)'], axis=1)
 
+def calculateDrillingTime(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
+
+   singleWell = dataset.query('ProjectName=="'+project+'" & WellName=="'+well+'" & RigName=="'+rig+'" & TimeClassification == "Productive" & Scope == "Yes" & BottomDepth > TopDepth  ')
+   drillingTime = singleWell['Duration(Days)'].sum(skipna = True)
+   return drillingTime
+
+def calculateInScopeProductiveFootage(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
+
+   singleWell = dataset.query('ProjectName=="'+project+'" & WellName=="'+well+'" & RigName=="'+rig+'" & TimeClassification == "Productive" & Scope == "Yes"')
+   InScopeAndProductiveFootage = singleWell['BottomDepth'].sum(skipna = True) - singleWell['TopDepth'].sum(skipna = True)
+   return InScopeAndProductiveFootage
 
 
 IDS = defineProjects()

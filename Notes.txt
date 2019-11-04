@@ -1,5 +1,5 @@
-                
-21. FPD-Drilling = [Actual Footage]/[08. Drilling Time]
+
+21.                 FPD-Drilling = [Actual Footage]/[08. Drilling Time]
 
     Actual Footage = sum(PowerBI_wdm_Operational_TimeBreakdown[11 DailyFootage])*3.2808
                     + IF( 'Measure Group'[14b Well spud depth] < 150, 'Measure Group'[14b Well spud depth]*0*3.2808,0)
@@ -13,6 +13,7 @@
                     Filter(PowerBI_wdm_Operational_TimeBreakdown, PowerBI_wdm_Operational_TimeBreakdown[BottomDepth]>PowerBI_wdm_Operational_TimeBreakdown[TopDepth])
 )
 
+FPDDrilling = PYInScopeProductiveFootage + PYminTopDepthFt / PYDrillingTime
 
 
 
