@@ -1,0 +1,69 @@
+                
+21. FPD-Drilling = [Actual Footage]/[08. Drilling Time]
+
+    Actual Footage = sum(PowerBI_wdm_Operational_TimeBreakdown[11 DailyFootage])*3.2808
+                    + IF( 'Measure Group'[14b Well spud depth] < 150, 'Measure Group'[14b Well spud depth]*0*3.2808,0)
+
+                    11 DailyFootage = IF(PowerBI_wdm_Operational_TimeBreakdown[TimeClassification]="Productive" && PowerBI_wdm_Operational_TimeBreakdown[Scope]<>"No",
+                    (PowerBI_wdm_Operational_TimeBreakdown[BottomDepth]-PowerBI_wdm_Operational_TimeBreakdown[TopDepth]),0)
+
+
+    08. Drilling Time = Calculate (
+                    Sum (PowerBI_wdm_Operational_TimeBreakdown[Duration(Days)]),
+                    Filter(PowerBI_wdm_Operational_TimeBreakdown, PowerBI_wdm_Operational_TimeBreakdown[BottomDepth]>PowerBI_wdm_Operational_TimeBreakdown[TopDepth])
+)
+
+
+
+
+*************************************************************************************
+
+
+
+
+
+22. FPD Flat Time = [Actual Footage]/([10. Flat Time During Drilling]-[07. Out of Scope STD])
+
+    Actual Footage = sum(PowerBI_wdm_Operational_TimeBreakdown[11 DailyFootage])*3.2808
+                    + IF( 'Measure Group'[14b Well spud depth] < 150, 'Measure Group'[14b Well spud depth]*0*3.2808,0)
+
+                    11 DailyFootage = IF(PowerBI_wdm_Operational_TimeBreakdown[TimeClassification]="Productive" && PowerBI_wdm_Operational_TimeBreakdown[Scope]<>"No",
+                    (PowerBI_wdm_Operational_TimeBreakdown[BottomDepth]-PowerBI_wdm_Operational_TimeBreakdown[TopDepth]),0)
+
+    10. Flat Time During Drilling = Calculate (
+                    Sum (PowerBI_wdm_Operational_TimeBreakdown[Duration(Days)]),
+                    Filter(PowerBI_wdm_Operational_TimeBreakdown, PowerBI_wdm_Operational_TimeBreakdown[BottomDepth]=PowerBI_wdm_Operational_TimeBreakdown[TopDepth]
+                    && PowerBI_wdm_Operational_TimeBreakdown[EndDate]<=PowerBI_wdm_Operational_TimeBreakdown[15 WelTD or ft/day Day TBD]))
+
+                    15 WelTD or ft/day Day TBD = if(
+                                                        CALCULATE (
+                                                                MIN('PowerBI_wdm_Operational_TimeBreakdown'[EndDate] ),
+                                                                        FILTER ( PowerBI_wdm_Operational_TimeBreakdown, 
+                                                                        [Activity] ="Drilling" 
+                                                                        && [subActivity]="Lay Down BHA"
+                                                                        && [WellName] = EARLIER ( [WellName] )
+                                                                        && ([EndDate]> [14 Well TD Date])
+                                                                    ))>1,
+
+                                                        CALCULATE (
+                                                                MIN('PowerBI_wdm_Operational_TimeBreakdown'[EndDate] ),
+                                                                        FILTER ( PowerBI_wdm_Operational_TimeBreakdown, 
+                                                                        [Activity] ="Drilling" 
+                                                                        && [subActivity]="Lay Down BHA"
+                                                                        && [WellName] = EARLIER ( [WellName] )
+                                                                        && ([EndDate]> [14 Well TD Date])
+                                                                    )),
+                                                        CALCULATE (
+                                                                MIN('PowerBI_wdm_Operational_TimeBreakdown'[EndDate] ),
+                                                                        FILTER ( PowerBI_wdm_Operational_TimeBreakdown, 
+                                                                        [Activity]<> "Drilling" 
+                                                                        && [WellName] = EARLIER ( [WellName] )
+                                                                        && ([EndDate]> [14 Well TD Date])
+                                                                    ))
+                                                        )
+
+                    14 Well TD Date = CALCULATE( 
+                     MAX(PowerBI_wdm_Operational_TimeBreakdown[EndDate]), 
+                      FILTER(PowerBI_wdm_Operational_TimeBreakdown, 
+                               PowerBI_wdm_Operational_TimeBreakdown[BottomDepth]>PowerBI_wdm_Operational_TimeBreakdown[TopDepth] 
+                               && [WellName]=EARLIER([WellName])))

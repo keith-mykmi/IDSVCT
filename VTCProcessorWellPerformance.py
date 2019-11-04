@@ -200,6 +200,8 @@ def NPTBreakDown():
     #Remove the Duration field as it will cause confusion and return
     return NPTCatsHeader.drop(['Duration(Days)'], axis=1)
 
+
+
 IDS = defineProjects()
 IDSNPT = NPTBreakDown()
 
