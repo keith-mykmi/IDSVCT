@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 """
@@ -124,6 +125,9 @@ def defineProjects():
 
             #Completions time
             IDS.at[index,'PYCompletionDays'] = completionDays
+
+            #Replace any infinity values with zero
+            IDS = IDS.replace([np.inf, -np.inf], 0)
                
     return IDS
 
@@ -158,7 +162,14 @@ def calculateWellStats(project='ADMA SARB Island UAE',rig='ND-78',well='SR54'):
     }
     
 
-    TDRecords = well.query('BottomDepth == '+str(wellStat['maxBottomDepth']))
+    TDRecords = well.query('BottomDepth == "'+str(wellStat['maxBottomDepth'])+'" & Activity == "Drilling" & SubActivity == "Lay Down BHA" '  )
+
+    print(len(TDRecords.index))
+
+    #if there are no records returned from the above, the well is not complete
+    if len(TDRecords.index) == 0 :
+        TDRecords = well.query('BottomDepth == '+str(wellStat['maxBottomDepth']))
+
     TDRecords['EndDate'].dropna(axis=0,how='any',inplace=True)
     wellStat['TDorCDreachedDT'] = TDRecords['EndDate'].min()
   
